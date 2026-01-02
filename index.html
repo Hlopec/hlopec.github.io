@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мій бюджет</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Мій бюджет</h1>
+      <p>Ведіть власні доходи та витрати онлайн, дані зберігаються у вашому браузері.</p>
+    </header>
+
+    <section class="summary">
+      <div>
+        <h2>Баланс</h2>
+        <span id="balance-uah" class="balance-main">0 ₴</span>
+        <small id="balance-usd" class="balance-secondary">≈ 0 $</small>
+        <small id="nbu-rate" class="rate-note"></small>
+      </div>
+      <div>
+        <h3>Доходи</h3>
+        <span id="income">0 ₴</span>
+      </div>
+      <div>
+        <h3>Витрати</h3>
+        <span id="expense">0 ₴</span>
+      </div>
+      <div>
+        <h3>Кредити</h3>
+        <span id="credit-total">0 ₴</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Додати транзакцію</h2>
+      <form id="transaction-form">
+        <label>
+          Опис
+          <input name="description" type="text" required placeholder="Зарплата, супермаркет, ...">
+        </label>
+        <label>
+          Категорія
+          <input name="category" type="text" required placeholder="Їжа, Дім, Зарплата...">
+        </label>
+        <label>
+          Дата
+          <input name="date" type="date" required>
+        </label>
+        <label>
+          Сума (₴)
+          <input name="amount" type="number" step="0.01" required>
+        </label>
+        <label class="type-toggle">
+          <span>Тип</span>
+          <select name="type">
+            <option value="income">Дохід</option>
+            <option value="expense">Витрата</option>
+          </select>
+        </label>
+        <button type="submit">Зберегти</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Транзакції</h2>
+        <button id="clear-all" type="button">Очистити все</button>
+      </div>
+      <div class="filters">
+        <label>
+          Фільтр за категорією
+          <input id="filter-category" type="text" placeholder="наприклад, Їжа">
+        </label>
+        <label>
+          Період
+          <input id="filter-from" type="date">
+          <span>—</span>
+          <input id="filter-to" type="date">
+        </label>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Опис</th>
+            <th>Категорія</th>
+            <th>Сума</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="transaction-list"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Категорії</h2>
+      <ul id="category-breakdown"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Кредити</h2>
+      <p>Ведіть поточні борги за різними категоріями та слідкуйте за загальним залишком по кредитах.</p>
+      <form id="credit-form">
+        <label>
+          Категорія
+          <input name="category" type="text" required placeholder="Наприклад, Авто, Дім...">
+        </label>
+        <label>
+          Опис
+          <input name="description" type="text" placeholder="Банк, умови тощо">
+        </label>
+        <label>
+          Дата початку
+          <input name="date" type="date">
+        </label>
+        <label>
+          Сума (₴)
+          <input name="amount" type="number" step="0.01" min="0" required>
+        </label>
+        <button type="submit">Додати кредит</button>
+      </form>
+
+      <div class="panel-header">
+        <h3>Список кредитів</h3>
+        <button id="clear-credits" type="button">Очистити кредити</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Категорія</th>
+            <th>Опис</th>
+            <th>Дата</th>
+            <th>Сума</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="credit-list"></tbody>
+      </table>
+
+      <h3>Суми за категоріями</h3>
+      <ul id="credit-category-list"></ul>
+    </section>
+  </div>
+
+  <template id="transaction-row-template">
+    <tr>
+      <td data-field="date"></td>
+      <td data-field="description"></td>
+      <td data-field="category"></td>
+      <td data-field="amount"></td>
+      <td><button data-action="delete" type="button">×</button></td>
+    </tr>
+  </template>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
