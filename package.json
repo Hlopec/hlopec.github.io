@@ -1,0 +1,11 @@
+{
+  "name": "hlopec-github-io",
+  "version": "1.0.0",
+  "description": "Бюджетний застосунок з простим файловим API.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

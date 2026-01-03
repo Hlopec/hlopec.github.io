@@ -1,5 +1,4 @@
-const STORAGE_KEY = "budget-transactions";
-const CREDIT_STORAGE_KEY = "budget-credits";
+const API_BASE = "/api";
 const USD_RATE_ENDPOINT =
   "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json";
 
@@ -23,128 +22,158 @@ const creditListEl = document.querySelector("#credit-list");
 const creditCategoryListEl = document.querySelector("#credit-category-list");
 const clearCreditsBtn = document.querySelector("#clear-credits");
 
-let transactions = loadTransactions();
-let credits = loadCredits();
+let transactions = [];
+let credits = [];
 let usdRate = null;
 
-render();
-updateUsdRate();
-setDefaultTransactionDate();
+init();
 
-form.addEventListener("submit", (event) => {
+async function init() {
+  try {
+    await refreshData();
+  } catch (error) {
+    handleError("Не вдалося отримати дані з сервера.", error);
+  } finally {
+    render();
+    updateUsdRate();
+    setDefaultTransactionDate();
+  }
+}
+
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(form);
-  const type = data.get("type");
-  const amount = Number(data.get("amount") || 0);
-
-  const transaction = {
-    id: crypto.randomUUID(),
+  const payload = {
     description: data.get("description").trim(),
     category: data.get("category").trim(),
     date: data.get("date"),
-    type,
-    amount: type === "expense" ? -Math.abs(amount) : Math.abs(amount),
+    type: data.get("type"),
+    amount: Number(data.get("amount") || 0),
   };
 
-  if (!transaction.description || !transaction.category || !transaction.date) {
+  if (!payload.description || !payload.category || !payload.date) {
     return;
   }
 
-  transactions = [transaction, ...transactions];
-  saveTransactions(transactions);
-  form.reset();
-  setDefaultTransactionDate();
-  render();
+  try {
+    await apiRequest("/transactions", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    form.reset();
+    setDefaultTransactionDate();
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося зберегти транзакцію.", error);
+  }
 });
 
-listEl.addEventListener("click", (event) => {
+listEl.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action='delete']");
   if (!button) return;
   const { id } = button.dataset;
-  transactions = transactions.filter((t) => t.id !== id);
-  saveTransactions(transactions);
-  render();
+  try {
+    await apiRequest(`/transactions/${id}`, { method: "DELETE" });
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося видалити транзакцію.", error);
+  }
 });
 
 filterCategoryEl.addEventListener("input", render);
 filterFromEl.addEventListener("change", render);
 filterToEl.addEventListener("change", render);
 
-clearAllBtn.addEventListener("click", () => {
+clearAllBtn.addEventListener("click", async () => {
   if (transactions.length === 0) return;
   if (!confirm("Видалити всі транзакції?")) return;
-  transactions = [];
-  saveTransactions(transactions);
-  render();
+  try {
+    await apiRequest("/transactions", { method: "DELETE" });
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося очистити транзакції.", error);
+  }
 });
 
-creditForm.addEventListener("submit", (event) => {
+creditForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(creditForm);
-  const category = data.get("category").trim();
-  const description = (data.get("description") || "").trim();
-  const date = data.get("date") || "";
-  const amount = Number(data.get("amount") || 0);
+  const payload = {
+    category: data.get("category").trim(),
+    description: (data.get("description") || "").trim(),
+    date: data.get("date") || "",
+    amount: Number(data.get("amount") || 0),
+  };
 
-  if (!category || amount <= 0) {
+  if (!payload.category || payload.amount <= 0) {
     return;
   }
 
-  const credit = {
-    id: crypto.randomUUID(),
-    category,
-    description,
-    date,
-    amount: Math.abs(amount),
-  };
-
-  credits = [credit, ...credits];
-  saveCredits(credits);
-  creditForm.reset();
-  render();
+  try {
+    await apiRequest("/credits", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    creditForm.reset();
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося зберегти кредит.", error);
+  }
 });
 
-creditListEl.addEventListener("click", (event) => {
+creditListEl.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action='delete-credit']");
   if (!button) return;
   const { id } = button.dataset;
-  credits = credits.filter((credit) => credit.id !== id);
-  saveCredits(credits);
-  render();
+  try {
+    await apiRequest(`/credits/${id}`, { method: "DELETE" });
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося видалити кредит.", error);
+  }
 });
 
-clearCreditsBtn.addEventListener("click", () => {
+clearCreditsBtn.addEventListener("click", async () => {
   if (credits.length === 0) return;
   if (!confirm("Видалити всі кредити?")) return;
-  credits = [];
-  saveCredits(credits);
-  render();
+  try {
+    await apiRequest("/credits", { method: "DELETE" });
+    await refreshData();
+    render();
+  } catch (error) {
+    handleError("Не вдалося очистити кредити.", error);
+  }
 });
 
-function loadTransactions() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+async function refreshData() {
+  const data = await apiRequest("/state");
+  transactions = data.transactions || [];
+  credits = data.credits || [];
+}
+
+async function apiRequest(endpoint, options = {}) {
+  const config = {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  };
+
+  const response = await fetch(`${API_BASE}${endpoint}`, config);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "API error");
   }
-}
-
-function saveTransactions(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
-
-function loadCredits() {
-  try {
-    const raw = localStorage.getItem(CREDIT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+  if (response.status === 204) {
+    return null;
   }
-}
-
-function saveCredits(items) {
-  localStorage.setItem(CREDIT_STORAGE_KEY, JSON.stringify(items));
+  return response.json();
 }
 
 function render() {
@@ -338,4 +367,9 @@ function formatUsd(value) {
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("uk-UA").format(new Date(value));
+}
+
+function handleError(message, error) {
+  console.error(message, error);
+  alert(message);
 }
